@@ -97,8 +97,8 @@ export default function Home() {
                 </Button>
               </div>
             </div>
-            <div className="lg:w-1/2 relative mt-6 lg:mt-0">
-              <div className="relative w-full h-[450px] md:h-[550px] rounded-2xl overflow-hidden border border-[#00B3E3]/20 shadow-[0_0_30px_rgba(0,179,227,0.15)]">
+            <div className="w-full lg:w-1/2 relative mt-6 lg:mt-0">
+              <div className="relative w-full h-[550px] md:h-[550px] rounded-2xl overflow-hidden border border-[#00B3E3]/20 shadow-[0_0_30px_rgba(0,179,227,0.15)]">
                 <Image
                   src="/node1.jpg"
                   alt="Raspberry Pi Crypto Node"

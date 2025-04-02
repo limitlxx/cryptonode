@@ -25,7 +25,7 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <Card
       className={`bg-white border-gray-200 overflow-hidden transition-all duration-300 h-full shadow-sm ${
-        product.featured ? "ring-2 ring-[#00B3E3]/50 scale-105 md:scale-105 shadow-md" : ""
+        product.featured ? "ring-2 ring-[#00B3E3]/50 scale-105 md:scale-105 shadow-md gap-4" : ""
       } ${isHovered ? "transform translate-y-[-8px] shadow-lg shadow-[#00B3E3]/10" : ""}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
