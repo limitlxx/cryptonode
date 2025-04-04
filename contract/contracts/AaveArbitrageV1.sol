@@ -89,7 +89,7 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
         require(msg.sender == address(POOL), "Unauthorized caller");
         
         uint256 initialBalance = IERC20(_token).balanceOf(address(this));
-        // console.log("First Balance:", initialBalance);
+        console.log("Current wallet Balance:", initialBalance);
         (string memory sourceDex, string memory targetDex, address[] memory path, uint256 minReturn) = 
             abi.decode(_params, (string, string, address[], uint256));
 
@@ -98,8 +98,8 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
             _processProfit(_token, _amount, _premium, initialBalance);
             
             // THEN approve repayment
-            uint256 totalOwed = _amount + _premium;
-            IERC20(_token).approve(address(POOL), totalOwed);
+            // uint256 totalOwed = _amount + _premium;
+            // IERC20(_token).approve(address(POOL), totalOwed);
             // console.log("Final allowance:", IERC20(_token).allowance(address(this), address(POOL)));
             
             return true;
@@ -173,7 +173,7 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
         _executeSwap(sourceRouter, _path, _amount, 0);
         uint256 intermediateAmount = IERC20(_path[1]).balanceOf(address(this));
         _executeSwap(targetRouter, _reversePath(_path), intermediateAmount, _minReturn);        
-        // console.log("Mid-process TB balance:", intermediateAmount);
+        console.log("Mid-process TB balance:", intermediateAmount);
     }
 
     function _executeSwap(
@@ -198,18 +198,18 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
         uint256 _premium,
         uint256 _initialBalance // Now correctly represents pre-trade balance
     ) internal {
-        // console.log("\n=== Processing Profit ===");
-        // console.log("Initial balance:", _initialBalance);
-        // console.log("Borrowed amount:", _borrowed);
-        // console.log("Premium amount:", _premium);
+        console.log("\n=== Processing Profit ===");
+        console.log("Initial balance:", _initialBalance);
+        console.log("Borrowed amount:", _borrowed);
+        console.log("Premium amount:", _premium);
         uint256 finalBalance = IERC20(_token).balanceOf(address(this));
-        // console.log("Final balance:", finalBalance);
+        console.log("Final balance:", finalBalance);
         
         uint256 totalOwed = _borrowed + _premium;
-        // console.log("Total owed:", totalOwed);
+        console.log("Total owed:", totalOwed);
 
         // FIRST: Approve repayment
-        // console.log("Approving repayment...");
+        console.log("Approving repayment...");
         IERC20(_token).approve(address(POOL), totalOwed);
         
         // Validate sufficient funds for repayment
@@ -217,7 +217,7 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
         
         // Calculate actual profit
         uint256 grossProfit = finalBalance - totalOwed;
-        // console.log("Gross profit:", grossProfit); 
+        console.log("Gross profit:", grossProfit); 
         
         // Ensure profit is above minimum threshold
         require(grossProfit >= minProfitThreshold, "Profit below minimum");       

@@ -3,7 +3,7 @@
 # dependencies
 /node_modules
 contract/node_modules
-trading-dashbord/node_modules
+trading-dashboard/node_modules
 # next.js
 /.next/
 /out/
