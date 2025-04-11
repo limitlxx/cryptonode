@@ -12,6 +12,8 @@ import OpportunityCard from "./opportunity-card"
 import ProtocolLiquiditySummary from "./protocol-liquidity-summary"
 import TokenBalanceOverview from "./token-balance-overview"
 
+import MarketPriceCard from "./market-price-card";
+
 // Sample opportunity data
 const opportunityData = [
   { name: "SUSHI/ETH", spread: 3.03, exchange1: "Uniswap", exchange2: "Sushiswap" },
@@ -45,7 +47,7 @@ export default function MarketOverview() {
       <TokenBalanceOverview />
 
       {/* Price Cards - Fixed grid layout with consistent heights */}
-      <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-3">
+      {/* <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-3">
         <div className="h-full">
           <InteractiveChart title="ETH Price" symbol="$" initialValue={3520} volatility={0.003} />
         </div>
@@ -67,7 +69,7 @@ export default function MarketOverview() {
             </div>
           </>
         )}
-      </div>
+      </div> */}
 
       {/* Main Content - Fixed grid layout with consistent heights */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
@@ -88,11 +90,10 @@ export default function MarketOverview() {
               </div>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="eth" className="h-full">
+              <Tabs defaultValue="dai" className="h-full">
                 <TabsList className="w-full">
                   <TabsTrigger value="eth">ETH</TabsTrigger>
-                  <TabsTrigger value="btc">BTC</TabsTrigger>
-                  <TabsTrigger value="uni">UNI</TabsTrigger>
+                  <TabsTrigger value="dai">DAI</TabsTrigger> 
                   <TabsTrigger value="aave">AAVE</TabsTrigger>
                 </TabsList>
 
@@ -108,11 +109,11 @@ export default function MarketOverview() {
                     />
                   </TabsContent>
 
-                  <TabsContent value="btc" className="h-full m-0">
+                  <TabsContent value="dai" className="h-full m-0">
                     <InteractiveChart
-                      title="BTC Price"
+                      title="DAI Price"
                       symbol="$"
-                      initialValue={65700}
+                      initialValue={1}
                       volatility={0.002}
                       timeframe="1h"
                       chartType="line"

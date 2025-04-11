@@ -9,6 +9,7 @@ import { Line, LineChart, CartesianGrid, XAxis, YAxis, Area, AreaChart, Responsi
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { ArrowUp, ArrowDown, RefreshCcw, Clock } from "lucide-react"
 import { useAppContext } from "@/context/app-context"
+import { fetchMarketPrices } from "@/lib/market-prices";
 
 interface ChartData {
   time: string
@@ -154,6 +155,39 @@ export default function InteractiveChart({
     const change = ((currentValue - previousValue) / previousValue) * 100
     setPercentChange(change)
   }, [currentValue, previousValue])
+
+  // Fetch real prices on mount
+  useEffect(() => {
+    const loadInitialPrice = async () => {
+      try {
+        const prices = await fetchMarketPrices();
+        const tokenPrice = prices.find(p => p.symbol === title.replace(' Price', ''));
+        
+        if (tokenPrice) {
+          setCurrentValue(tokenPrice.price);
+          setPreviousValue(tokenPrice.price * (1 - tokenPrice.change24h/100));
+          setPercentChange(tokenPrice.change24h);
+          
+          // Generate chart data based on real price
+          generateChartData(tokenPrice.price, tokenPrice.change24h);
+        }
+      } catch (error) {
+        console.error("Error loading initial price:", error);
+        generateChartData(initialValue, 0);
+      }
+    };
+
+    loadInitialPrice();
+  }, [title]);
+
+  const generateChartData = (basePrice: number, dailyChange: number) => {
+    const now = new Date();
+    const data: ChartData[] = [];
+    
+    // ... rest of your existing data generation logic ...
+    // Modify to use basePrice as starting point
+    // Incorporate dailyChange into the trend calculation
+  };
 
   // Handle manual refresh
   const handleRefresh = useCallback(() => {

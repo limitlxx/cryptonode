@@ -1,4 +1,4 @@
-"\"use client"
+"use client"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,7 @@ export default function EmergencyPause() {
   const [reason, setReason] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const { isContractPaused, setIsContractPaused, addNotification } = useAppContext()
+  const { isContractPaused, setIsContractPaused, addNotification, contract } = useAppContext()
 
   const handlePauseContract = () => {
     if (!reason.trim()) {
@@ -39,50 +39,54 @@ export default function EmergencyPause() {
     setIsLoading(true)
 
     // Simulate API call to pause contract
-    setTimeout(() => {
-      setIsContractPaused(true)
-      setIsLoading(false)
+    try {
+      // Call the actual contract method
+      contract.togglePause()
+      
+      // Notification will be added by the context provider's wrapper
+      toast({
+        title: "Transaction Submitted",
+        description: "Contract pause request has been sent to the blockchain",
+      })
+      
       setIsPauseDialogOpen(false)
       setReason("")
-
-      // Add notification
-      addNotification({
-        type: "alert",
-        title: "Contract Paused",
-        message: `Contract operations have been paused: ${reason}`,
-        read: false,
-      })
-
+    } catch (error) {
       toast({
-        title: "Contract Paused",
-        description: "All contract operations have been paused",
         variant: "destructive",
+        title: "Transaction Failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
       })
-    }, 1500)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleResumeContract = () => {
     setIsLoading(true)
 
     // Simulate API call to resume contract
-    setTimeout(() => {
-      setIsContractPaused(false)
-      setIsLoading(false)
-      setIsResumeDialogOpen(false)
-
-      // Add notification
-      addNotification({
-        type: "success",
-        title: "Contract Resumed",
-        message: "Contract operations have been resumed",
-        read: false,
-      })
-
+    try {
+      // Call the actual contract method
+      contract.togglePause()
+      
+      // Notification will be added by the context provider's wrapper
       toast({
-        title: "Contract Resumed",
-        description: "All contract operations have been resumed",
+        title: "Transaction Submitted",
+        description: "Contract resume request has been sent to the blockchain",
       })
-    }, 1500)
+      
+      setIsResumeDialogOpen(false)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Transaction Failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+ 
   }
 
   return (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,13 +11,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Wallet, Copy, ExternalLink, LogOut, ChevronDown } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { toast, useToast } from "@/components/ui/use-toast"
+import { ethers } from "ethers"
+import { useAppContext } from "@/context/app-context"
 
 interface WalletToken {
   symbol: string
   name: string
   balance: string
   value: string
+  usdValue: number
+  address: string
 }
 
 export default function WalletConnection() {
@@ -26,38 +30,85 @@ export default function WalletConnection() {
   const [walletAddress, setWalletAddress] = useState("")
   const [walletBalance, setWalletBalance] = useState("0.00")
   const [tokens, setTokens] = useState<WalletToken[]>([])
+  const [totalValue, setTotalValue] = useState(0) 
+  
+  const { ownerwallet, contract } = useAppContext()
   const { toast } = useToast()
 
   const connectWallet = async () => {
     setIsConnecting(true)
+    
+    try {
+      // In a real implementation, you would connect to MetaMask or other wallet here
+      // For now, we'll use the wallet from context (assuming it's set up in AppContext)
+      if (!ownerwallet) {
+        throw new Error("Wallet not initialized")
+      }
 
-    // Simulate connection delay
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    // Mock wallet connection
-    setIsConnected(true)
-    setWalletAddress("0x1234...5678")
-    setWalletBalance("2.45")
-    setTokens([
-      { symbol: "ETH", name: "Ethereum", balance: "2.45", value: "$4,532.50" },
-      { symbol: "USDT", name: "Tether", balance: "1,250.00", value: "$1,250.00" },
-      { symbol: "LINK", name: "Chainlink", balance: "75.5", value: "$825.45" },
-      { symbol: "UNI", name: "Uniswap", balance: "120.0", value: "$720.00" },
-    ])
-
-    setIsConnecting(false)
-
-    toast({
-      title: "Wallet Connected",
-      description: "Your wallet has been successfully connected",
-    })
+      const address = ownerwallet
+      
+      console.log("Connecting to wallet:", address);
+      const shortenedAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`
+      
+      setWalletAddress(shortenedAddress)
+      setIsConnected(true)
+      
+      // Fetch balances
+      await fetchBalances(address.toString());
+      
+      toast({
+        title: "Wallet Connected",
+        description: "Your wallet has been successfully connected",
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Failed to connect wallet",
+      })
+    } finally {
+      setIsConnecting(false)
+    }
   }
+ 
+  const fetchBalances = async (address: string) => {
+    try {
+      console.log("Fetching balances for:", address);
+      
+      // Call the contract to get balances
+      const balances = await contract.fetchBalances(address);
+      
+      console.log("Got balances:", balances);
+      
+      if (Array.isArray(balances)) {
+        setTokens(balances);
+        
+        // Calculate total value
+        const total = balances.reduce((sum, token) => sum + token.usdValue, 0);
+        setTotalValue(total);
+        
+        // Set ETH balance separately
+        const ethBalance = balances.find(t => t.symbol === "ETH");
+        if (ethBalance) {
+          setWalletBalance(parseFloat(ethBalance.balance).toFixed(4));
+        }
+      }
+    } catch (error) {
+      console.error("Error in fetchBalances:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch balances",
+      });
+    }
+  };
 
   const disconnectWallet = () => {
     setIsConnected(false)
     setWalletAddress("")
     setWalletBalance("0.00")
     setTokens([])
+    setTotalValue(0)
 
     toast({
       title: "Wallet Disconnected",
@@ -66,12 +117,32 @@ export default function WalletConnection() {
   }
 
   const copyAddress = () => {
-    navigator.clipboard.writeText(walletAddress.replace("...", ""))
+    if (!ownerwallet) return
+    
+    navigator.clipboard.writeText(ownerwallet.toString())
     toast({
       title: "Address Copied",
       description: "Wallet address copied to clipboard",
     })
   }
+
+  // Auto-connect if wallet is already available
+  useEffect(() => {
+    if (ownerwallet && !isConnected) {
+      connectWallet() 
+    }
+  }, [ownerwallet])
+
+  // Refresh balances periodically
+  useEffect(() => {
+    if (isConnected && ownerwallet) {
+      const intervalId = setInterval(() => {
+        fetchBalances(ownerwallet.toString());
+      }, 30000); // Refresh every 30 seconds
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [isConnected, ownerwallet]);
 
   if (!isConnected) {
     return (
@@ -122,6 +193,9 @@ export default function WalletConnection() {
             </Button>
           </div>
           <div className="text-xs text-muted-foreground mt-1">{walletAddress}</div>
+          <div className="text-sm font-medium mt-2">
+            Total Value: ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="px-2 py-1.5">
@@ -145,7 +219,7 @@ export default function WalletConnection() {
           </div>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2" onClick={() => window.open("https://etherscan.io", "_blank")}>
+        <DropdownMenuItem className="gap-2" onClick={() => window.open(`https://etherscan.io/address/${ownerwallet}`, "_blank")}>
           <ExternalLink className="h-4 w-4" />
           View on Explorer
         </DropdownMenuItem>
@@ -157,4 +231,3 @@ export default function WalletConnection() {
     </DropdownMenu>
   )
 }
-

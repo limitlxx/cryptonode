@@ -48,6 +48,9 @@ export default function TradeBotSimulator() {
         }
 
         setTradeNotifications((prev) => [newTrade, ...prev].slice(0, 5))
+        // const audio = new Audio("/mixkit-sci-fi-confirmation-914.mp3")
+        // audio.volume = 0.5
+        // audio.play().catch((e) => console.log("Audio play failed:", e))
       },
       Math.random() * 10000 + 15000,
     ) // Random interval between 15-25 seconds

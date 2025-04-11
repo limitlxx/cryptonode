@@ -25,7 +25,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isSystemActive || isContractPaused) return
 
-    // Simulate a new opportunity every 30-90 seconds
+    // Simulate a new opportunity every 30-90 secondss
     const intervalId = setInterval(
       () => {
         simulateNewOpportunity()
@@ -41,7 +41,13 @@ export default function Dashboard() {
       <ContractStatusBanner />
       <TopNavigation activeView={activeView} setActiveView={setActiveView} />
 
-      {!isMobile && <Header />}
+      {!isMobile && (
+        <Header
+          onToggleSidebar={() => console.log("Sidebar toggled")}
+          isSidebarOpen={false}
+          onToggleNotifications={() => console.log("Notifications toggled")}
+        />
+      )}
 
       <main className="flex-1 p-4 md:p-6 pb-16 max-w-[1600px] mx-auto w-full">
         <motion.div

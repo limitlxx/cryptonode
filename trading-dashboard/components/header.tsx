@@ -7,6 +7,7 @@ import EmergencyPause from "./emergency-pause"
 import { Bell, Menu, X } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import WalletConnection from "./wallet-connection"
+import NetworkSwitcher from "./network-panel"
 
 interface HeaderProps {
   onToggleSidebar: () => void
@@ -48,6 +49,8 @@ export default function Header({ onToggleSidebar, isSidebarOpen, onToggleNotific
         <EmergencyPause />
 
         <WalletConnection />
+
+        <NetworkSwitcher />
 
         <Button variant="outline" size="icon" className="relative" onClick={onToggleNotifications}>
           {unreadNotificationsCount > 0 && (
