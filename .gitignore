@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 contract/node_modules
+bot/node_modules
 trading-dashboard/node_modules
 # next.js
 /.next/
@@ -21,6 +22,7 @@ yarn-error.log*
 # env files
 .env*
 contract/.env*
+bot/.env*
 
 # vercel
 .vercel

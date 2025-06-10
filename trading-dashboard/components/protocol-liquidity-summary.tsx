@@ -1,6 +1,9 @@
+// Update protocol-liquidity-summary.tsx
 "use client"
 
-import type React from "react"
+import React, { useEffect, useState } from 'react';
+import { useAppContext } from '@/context/app-context';
+import { ethers } from 'ethers';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -10,43 +13,197 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts"
 import { ArrowUpRight, TrendingUp, Droplet, AlertCircle } from "lucide-react"
 
-// Sample data
-const protocolData = [
-  { name: "Aave", liquidity: 25700000, utilization: 85, color: "#B6509E" },
-  { name: "Compound", liquidity: 13200000, utilization: 82, color: "#00D395" },
-  { name: "dYdX", liquidity: 5800000, utilization: 91, color: "#6966FF" },
-  { name: "Uniswap", liquidity: 18500000, utilization: 88, color: "#FF007A" },
-]
-
-const tokenData = [
-  { name: "ETH", liquidity: 24300000, utilization: 83, color: "#627EEA" },
-  { name: "USDC", liquidity: 15600000, utilization: 85, color: "#2775CA" },
-  { name: "DAI", liquidity: 5200000, utilization: 87, color: "#F5AC37" },
-  { name: "WBTC", liquidity: 18100000, utilization: 79, color: "#F7931A" },
-]
-
 const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-background border border-border p-2 rounded-md shadow-md text-sm">
-        <p className="font-medium">{payload[0].name}</p>
-        <p className="text-muted-foreground">${payload[0].value.toLocaleString()}</p>
-      </div>
-    )
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border border-border p-2 rounded-md shadow-md text-sm">
+          <p className="font-medium">{payload[0].name}</p>
+          <p className="text-muted-foreground">${payload[0].value.toLocaleString()}</p>
+        </div>
+      )
+    }
+    return null
   }
-  return null
-}
 
 export default function ProtocolLiquiditySummary() {
-  const totalLiquidity = protocolData.reduce((sum, item) => sum + item.liquidity, 0)
-  const averageUtilization = Math.round(
-    protocolData.reduce((sum, item) => sum + item.utilization, 0) / protocolData.length,
-  )
+  const { contract } = useAppContext();
+  interface ProtocolData {
+      name: string;
+      description: string;
+      liquidity: number;
+      available: number;
+      utilization: number;
+      color: string;
+      token: string;
+      error?: boolean;
+  }
+  
+  const [protocolData, setProtocolData] = useState<ProtocolData[]>([]);
+  interface TokenData {
+    name: string;
+    liquidity: number;
+    available: number;
+    utilization: number;
+    color: string;
+    error?: boolean;
+  }
+  
+  const [tokenData, setTokenData] = useState<TokenData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLiquidityData = async () => {
+      setLoading(true);
+      try {
+        // Get the primary token for the network (usually ETH or native token)
+        // Get the active network name (ensure it's a string)
+        const choosenNetwork = (contract.activeNetwork || "sepolia") as string;        
+        const primaryTokenSymbol = getPrimaryTokenForNetwork(choosenNetwork);
+        
+        // Define protocols and their default tokens
+        const protocols = [
+          { 
+            name: "Aave", 
+            token: primaryTokenSymbol,
+            description: "Lending pool liquidity"
+          },
+          { 
+            name: "Compound", 
+            token: primaryTokenSymbol,
+            description: "Money market liquidity"
+          },
+          { 
+            name: "dYdX",
+            token: primaryTokenSymbol,
+            description: "Margin trading liquidity",
+            isMarketBased: true
+          }
+        ];
+
+        const protocolResults = await Promise.all(
+          protocols.map(async (protocol) => {
+            const result = await contract.getProtocolLiquidity(
+                protocol.name,
+                protocol.token
+            ) as unknown as { total: string; available: string; utilization: number };
+            
+            return {
+              name: protocol.name,
+              description: protocol.description,
+              liquidity: parseFloat(ethers.formatEther(result.total)),
+              available: parseFloat(ethers.formatEther(result.available)),
+              utilization: result.utilization,
+              color: getProtocolColor(protocol.name),
+              token: protocol.token,
+              error: false
+            };
+          })
+        );
+
+         // Get all tokens for current network
+        const networkTokens = await contract.getNetworkTokens();
+        const tokenSymbols = Object.keys(networkTokens);
+
+        // Fetch token liquidity across protocols (using Aave as example)
+        const tokenResults = await Promise.all(
+          tokenSymbols.map(async (symbol) => {
+            try {
+              const result = await contract.getProtocolLiquidity('Aave', symbol) as unknown as { total: string; available: string; utilization: number };;
+              return {
+                name: symbol,
+                liquidity: parseFloat(ethers.formatEther(result.total)),
+                available: parseFloat(ethers.formatEther(result.available)),
+                utilization: result.utilization,
+                color: getTokenColor(symbol)
+              };
+            } catch (error) {
+              console.error(`Error fetching liquidity for ${symbol}:`, error);
+              return {
+                name: symbol,
+                liquidity: 0,
+                available: 0,
+                utilization: 0,
+                color: getTokenColor(symbol),
+                error: true
+              };
+            }
+          })
+        );
+
+        setProtocolData(protocolResults.filter(p => !p.error));
+        setTokenData(tokenResults.filter(t => !t.error));
+      } catch (error) {
+        console.error("Error fetching liquidity data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLiquidityData();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchLiquidityData, 30000);
+    return () => clearInterval(interval);
+  }, [contract]);   
+
+   // Helper functions
+   function getPrimaryTokenForNetwork(network: string): string {
+    switch (network.toLowerCase()) {
+      case 'ethereum': return 'ETH';
+      case 'arbitrum': return 'ETH';
+      case 'optimism': return 'ETH';
+      case 'polygon': return 'MATIC';
+      case 'avalanche': return 'AVAX';
+      case 'bsc': return 'BNB';
+      default: return 'ETH';
+    }
+  }
+
+  function getDefaultPairForNetwork(network: string): string {
+    switch (network.toLowerCase()) {
+      case 'ethereum': return 'ETH-USDC';
+      case 'arbitrum': return 'ETH-USDC';
+      case 'optimism': return 'ETH-USDC';
+      case 'polygon': return 'MATIC-USDC';
+      case 'avalanche': return 'AVAX-USDC';
+      case 'bsc': return 'BNB-BUSD';
+      default: return 'ETH-USDC';
+    }
+  }
+
+  const getProtocolColor = (name: string) => {
+    switch (name.toLowerCase()) {
+      case 'aave': return '#B6509E';
+      case 'compound': return '#00D395';
+      case 'dydx': return '#6966FF';
+      case 'uniswap': return '#FF007A';
+      default: return '#8884d8';
+    }
+  };
+
+  const getTokenColor = (symbol: string) => {
+    switch (symbol) {
+      case 'ETH': return '#627EEA';
+      case 'USDC': return '#2775CA';
+      case 'DAI': return '#F5AC37';
+      case 'WBTC': return '#F7931A';
+      default: return '#8884d8';
+    }
+  };
+
+  // Calculate totals
+  const totalLiquidity = protocolData.reduce((sum, item) => sum + item.liquidity, 0);
+  const averageUtilization = protocolData.length > 0 
+    ? Math.round(protocolData.reduce((sum, item) => sum + item.utilization, 0) / protocolData.length)
+    : 0;
 
   // Find protocol with highest utilization
   const highestUtilization = protocolData.reduce((prev, current) =>
-    prev.utilization > current.utilization ? prev : current,
-  )
+      (prev.utilization > current.utilization ? prev : current), { name: '', utilization: 0 });
+
+  if (loading) {
+    return <div className="p-4 text-center">Loading liquidity data...</div>;
+  }
 
   return (
     <Card className="bg-card/50 backdrop-blur-sm h-full">
@@ -204,4 +361,3 @@ export default function ProtocolLiquiditySummary() {
     </Card>
   )
 }
-

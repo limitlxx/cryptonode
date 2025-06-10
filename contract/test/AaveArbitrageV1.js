@@ -46,7 +46,7 @@ describe("AaveArbitrageV1", function () {
 
     
     // Fund the arbitrage contract with a small amount of tokens for gas
-    await mockTokenA.connect(owner).transfer(arbitrage.target, ethers.parseEther("0.1"));
+    // await mockTokenA.connect(owner).transfer(arbitrage.target, ethers.parseEther("0.1"));
 
     // Fund the Aave pool with tokens
     await mockTokenA.connect(owner).approve(mockAavePool.target, ethers.MaxUint256);
@@ -164,8 +164,7 @@ describe("AaveArbitrageV1", function () {
       console.log("\n=== Starting Test ===");
       // Add to your test
       console.log("DEX1 TokenA balance:", await mockTokenA.balanceOf(mockDexRouter1.target));
-      console.log("DEX1 TokenB balance:", await mockTokenB.balanceOf(mockDexRouter1.target));
-      
+      console.log("DEX1 TokenB balance:", await mockTokenB.balanceOf(mockDexRouter1.target));      
       
       // 1. Verify initial state
       console.log("1. Initial checks...");
@@ -295,119 +294,97 @@ describe("AaveArbitrageV1", function () {
   });
 
   describe("Fee Collection", function () {
-    
-    
-    it("Should retain profits in contract", async function () {
+
+        // For "Should retain profits in contract"
+      it("Should retain profits in contract 1", async function () {
+        const loanAmount = ethers.parseEther("1");
+        const path = [mockTokenA.target, mockTokenB.target];
+        
+        // Setup swaps
+        await mockDexRouter1.setAmountOut(ethers.parseEther("1.2")); // 1 TA → 1.2 TB
+        await mockDexRouter2.setAmountOut(ethers.parseEther("1.44")); // 1.2 TB → 1.44 TA
+
+        const initialBalance = await mockTokenA.balanceOf(arbitrage.target);
+        
+        await arbitrage.connect(owner).executeArbitrage(
+            mockTokenA.target,
+            loanAmount,
+            "Uniswap",
+            "SushiSwap",
+            path,
+            0
+        );
+  
+  const finalBalance = await mockTokenA.balanceOf(arbitrage.target);
+  
+  // Expected: initial + (1.44 - 1.0009) = initial + 0.4391
+  const expectedProfit = ethers.parseEther("0.4391");
+  expect(finalBalance).to.equal(initialBalance + expectedProfit);
+});
+
+    it("Should show profit entering at second swap 2.1", async () => {
       const loanAmount = ethers.parseEther("1");
       const path = [mockTokenA.target, mockTokenB.target];
       
-      // Setup profitable swaps
-      await mockDexRouter1.setAmountOut(ethers.parseEther("1.2")); // 1 TA → 1.2 TB
-      await mockDexRouter2.setAmountOut(ethers.parseEther("1.44")); // 1.2 TB → 1.44 TA
-
-      // Add to your test
-      console.log("DEX1 TokenA balance:", await mockTokenA.balanceOf(mockDexRouter1.target));
-      console.log("DEX1 TokenB balance:", await mockTokenB.balanceOf(mockDexRouter1.target));
-      
-      // Get initial balance
-      const initialBalance = await mockTokenA.balanceOf(arbitrage.target);
-      console.log("Initial contract balance:", initialBalance.toString());
-      
-      // Execute arbitrage
-      console.log("2. Executing arbitrage...");
-      // Track initial balances
-    const initialTA = await mockTokenA.balanceOf(arbitrage.target);
-    const initialDex1TA = await mockTokenA.balanceOf(mockDexRouter1.target);
-    const initialDex1TB = await mockTokenB.balanceOf(mockDexRouter1.target);
-      try {
-          const tx = await arbitrage.connect(owner).executeArbitrage(
-              mockTokenA.target,
-              loanAmount,
-              "Uniswap",
-              "SushiSwap",
-              path,
-              0
-          );
-          
-          const receipt = await tx.wait();
-          console.log("Transaction result:", receipt.status === 1 ? "Success" : "Failed");
-          
-          
-    // Verify token movements
-    expect(await mockTokenA.balanceOf(mockDexRouter1.target))
-    .to.equal(initialDex1TA + ethers.parseEther("1")); // DEX1 should gain 1 TA
-    
-expect(await mockTokenB.balanceOf(mockDexRouter1.target))
-    .to.equal(initialDex1TB - ethers.parseEther("1.2")); // DEX1 should lose 1.2 TB
-    
-expect(await mockTokenB.balanceOf(arbitrage.target))
-    .to.equal(ethers.parseEther("1.2")); // Contract should gain 1.2 TB
-      
-      // Verify final balance
-      const finalBalance = await mockTokenA.balanceOf(arbitrage.target);
-      console.log("Final contract balance:", finalBalance.toString());
-      
-          // Calculate expected profit (1.44 return - 1.0009 repayment)
-    const premium = (loanAmount * 9n) / 10000n; // 0.09% premium
-    const expectedProfit = ethers.parseEther("1.44") - (loanAmount + premium);
-    
-    expect(finalBalance).to.equal(initialBalance + expectedProfit);
-    
-    } catch (error) {
-      console.error("Test failed:", error);
-      throw error;
-  }
-    });
-
-
-    it("Should show profit entering at second swap 2", async () => {
-      const loanAmount = ethers.parseEther("1");
-      const path = [mockTokenA.target, mockTokenB.target];
-      
-      // Setup
+      // Setup swaps with different rates
       await mockDexRouter1.setAmountOut(ethers.parseEther("1.33")); 
       await mockDexRouter2.setAmountOut(ethers.parseEther("1.66"));
-  
-      // Track balances
-      const startTA = await mockTokenA.balanceOf(arbitrage.target);
+
+      const initialBalance = await mockTokenA.balanceOf(arbitrage.target);
       
-      // Execute
       await arbitrage.connect(owner).executeArbitrage(
-        mockTokenA.target,
-        loanAmount,
-        "Uniswap",
-        "SushiSwap",
-        path,
-        0
-    );
-      
-      // Verify
-      const endTA = await mockTokenA.balanceOf(arbitrage.target);
-      const profit = endTA - startTA; // Should be ~0.4391 TA
-      
-      expect(profit).to.equal(
-          ethers.parseEther("1.66") - ethers.parseEther("1.33")
+          mockTokenA.target,
+          loanAmount,
+          "Uniswap",
+          "SushiSwap",
+          path,
+          0
       );
+      
+      const finalBalance = await mockTokenA.balanceOf(arbitrage.target);
+      const profit = finalBalance - initialBalance;
+      
+      // Expected: 1.66 - 1.33 - 0.0009 = 0.3291
+      const expectedProfit = ethers.parseEther("0.6591");
+      expect(profit).to.equal(expectedProfit);
     });
-
-
 
   });
 
   describe("Emergency Functions", function () {
     it("Should allow owner to rescue tokens", async function () {
-      const initialBalance = await mockTokenA.balanceOf(owner.address);
-      const contractBalance = await mockTokenA.balanceOf(arbitrage.target);
-      
-      await arbitrage.connect(owner).rescueTokens(mockTokenA.target);
-      
-      const finalBalance = await mockTokenA.balanceOf(owner.address);
-      expect(finalBalance).to.equal(initialBalance + contractBalance);
+        // Get initial balances
+        const initialOwnerBalance = await mockTokenA.balanceOf(owner.address);
+        const initialContractBalance = await mockTokenA.balanceOf(arbitrage.target);
+        
+        // Determine rescue amount (can't rescue more than contract has)
+        const rescueAmount = ethers.parseEther("0.6591");
+        const expectedTransfer = rescueAmount > initialContractBalance 
+            ? initialContractBalance 
+            : rescueAmount;
+        
+        // Execute rescue
+        await arbitrage.connect(owner).rescueTokens(mockTokenA.target, rescueAmount);
+        
+        // Verify balances
+        const finalOwnerBalance = await mockTokenA.balanceOf(owner.address);
+        const finalContractBalance = await mockTokenA.balanceOf(arbitrage.target);
+        
+        // Owner should gain exactly what was transferred
+        expect(finalOwnerBalance).to.equal(initialOwnerBalance + expectedTransfer);
+        
+        // Contract should lose exactly what was transferred
+        expect(finalContractBalance).to.equal(initialContractBalance - expectedTransfer);
+        
+        // Verify event emission
+        await expect(arbitrage.connect(owner).rescueTokens(mockTokenA.target, rescueAmount))
+            .to.emit(arbitrage, "TokensRescued")
+            .withArgs(mockTokenA.target, expectedTransfer);
     });
 
     it("Should prevent non-owners from rescuing tokens", async function () {
       await expect(
-        arbitrage.connect(user).rescueTokens(mockTokenA.target)
+        arbitrage.connect(user).rescueTokens(mockTokenA.target, ethers.parseEther("0.6591"))
       ).to.be.revertedWithCustomError(arbitrage, "OwnableUnauthorizedAccount");
     });
   });

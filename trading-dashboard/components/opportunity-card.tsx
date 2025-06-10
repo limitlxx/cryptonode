@@ -91,17 +91,19 @@ export default function OpportunityCard({ opportunity }: OpportunityProps) {
               label: "View Details",
               onClick: () => console.log("View trade details"),
             },
+            read: false
           })
         } else {
           // Add failure notification
           addNotification({
-            type: "error",
+            type: "alert",
             title: "Trade failed",
             message: `Failed to execute ${opportunity.name} arbitrage: ${Math.random() > 0.5 ? "High slippage detected" : "Gas price spike"}`,
             action: {
               label: "Retry",
               onClick: () => handleExecuteTrade(),
             },
+            read: false
           })
         }
 

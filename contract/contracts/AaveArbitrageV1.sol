@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@aave/core-v3/contracts/flashloan/base/FlashLoanSimpleReceiverBase.sol";
-import "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
+import "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol"; 
 
 import "hardhat/console.sol";
 
@@ -43,6 +43,7 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
     event DexRouterUpdated(string indexed dex, address router);
     event FeesUpdated(uint256 percentage); 
     event OperationFailed(string reason);
+    event TokensRescued(address indexed token, uint256 amount);
 
     modifier whenActive() {
         require(!isPaused, "Contract paused");
@@ -85,22 +86,17 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
         uint256 _premium,
         address _initiator,
         bytes calldata _params
-    ) external override returns (bool) {
+    ) external override nonReentrant returns (bool) {
         require(msg.sender == address(POOL), "Unauthorized caller");
         
         uint256 initialBalance = IERC20(_token).balanceOf(address(this));
-        console.log("Current wallet Balance:", initialBalance);
+        // console.log("Current wallet Balance:", initialBalance);
         (string memory sourceDex, string memory targetDex, address[] memory path, uint256 minReturn) = 
             abi.decode(_params, (string, string, address[], uint256));
 
         try this._executeWithTryCatch(sourceDex, targetDex, path, _amount, minReturn) {
             // Process profit FIRST
             _processProfit(_token, _amount, _premium, initialBalance);
-            
-            // THEN approve repayment
-            // uint256 totalOwed = _amount + _premium;
-            // IERC20(_token).approve(address(POOL), totalOwed);
-            // console.log("Final allowance:", IERC20(_token).allowance(address(this), address(POOL)));
             
             return true;
         } catch Error(string memory reason) {
@@ -172,8 +168,10 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
         
         _executeSwap(sourceRouter, _path, _amount, 0);
         uint256 intermediateAmount = IERC20(_path[1]).balanceOf(address(this));
+        // console.log("Mid-process TB balance 1:", intermediateAmount);
+
         _executeSwap(targetRouter, _reversePath(_path), intermediateAmount, _minReturn);        
-        console.log("Mid-process TB balance:", intermediateAmount);
+        // console.log("Mid-process TB balance 0:", intermediateAmount);
     }
 
     function _executeSwap(
@@ -203,13 +201,10 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
         console.log("Borrowed amount:", _borrowed);
         console.log("Premium amount:", _premium);
         uint256 finalBalance = IERC20(_token).balanceOf(address(this));
-        console.log("Final balance:", finalBalance);
         
         uint256 totalOwed = _borrowed + _premium;
-        console.log("Total owed:", totalOwed);
 
         // FIRST: Approve repayment
-        console.log("Approving repayment...");
         IERC20(_token).approve(address(POOL), totalOwed);
         
         // Validate sufficient funds for repayment
@@ -217,7 +212,6 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
         
         // Calculate actual profit
         uint256 grossProfit = finalBalance - totalOwed;
-        console.log("Gross profit:", grossProfit); 
         
         // Ensure profit is above minimum threshold
         require(grossProfit >= minProfitThreshold, "Profit below minimum");       
@@ -273,9 +267,11 @@ contract AaveArbitrageV1 is FlashLoanSimpleReceiverBase, Ownable, ReentrancyGuar
     }
 
     // Emergency functions
-    function rescueTokens(address _token) external onlyOwner {
+    function rescueTokens(address _token, uint256 amount) external onlyOwner {
         uint256 balance = IERC20(_token).balanceOf(address(this));
-        IERC20(_token).transfer(owner(), balance);
+        uint256 transferAmount = amount > balance ? balance : amount;
+        IERC20(_token).transfer(owner(), transferAmount);
+        emit TokensRescued(_token, transferAmount); // New event for successful rescue
     }
 
     function togglePause() external onlyOwner {

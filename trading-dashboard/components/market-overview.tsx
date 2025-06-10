@@ -10,9 +10,7 @@ import { useAppContext } from "@/context/app-context"
 import InteractiveChart from "./interactive-chart"
 import OpportunityCard from "./opportunity-card"
 import ProtocolLiquiditySummary from "./protocol-liquidity-summary"
-import TokenBalanceOverview from "./token-balance-overview"
-
-import MarketPriceCard from "./market-price-card";
+import TokenBalanceOverview from "./token-balance-overview" 
 
 // Sample opportunity data
 const opportunityData = [

@@ -22,6 +22,7 @@ async function withExponentialBackoff(fn, maxRetries = 3, initialDelay = 1000) {
 class ArbitrageBot {
   constructor(network = getStoredNetwork()) {   
     this.networkConfig = config.networks[network];
+    this.activeNetwork = network;
     this.cache = {
       prices: null,
       lastPriceUpdate: 0,
@@ -800,12 +801,256 @@ class ArbitrageBot {
     });
     
   }
-
- 
-
+  
   getOpportunities() {
     return this.opportunities;
   }
+
+  // Add this method to get tokens for current network
+  getNetworkTokens() {
+    if (!this.networkConfig?.tokens) {
+      console.error('No tokens configured for network:', this.activeNetwork);
+      return {};
+    }
+    return this.networkConfig.tokens;
+  }
+
+  async getProtocolLiquidity(protocolName, tokenSymbol) {
+    try {
+      const protocol = protocolName.toLowerCase();
+      const tokens = this.getNetworkTokens();
+      
+    if (!tokens[tokenSymbol]) {
+      throw new Error(`Token ${tokenSymbol} not supported on ${this.activeNetwork}`);
+    }
+
+      const tokenAddress = tokens[tokenSymbol];
+
+      switch (protocol) {
+        case 'aave':
+          return await this.getAaveLiquidity(tokenAddress);
+        case 'compound':
+          return await this.getCompoundLiquidity(tokenAddress);
+        case 'dydx':
+          return await this.getDydxLiquidity(tokenAddress);
+        default:
+          throw new Error(`Protocol not implemented: ${protocolName}`);
+      }
+    } catch (error) {
+      console.error(`Error getting ${protocolName} liquidity for ${tokenSymbol}:`, error);
+      return {
+        total: ethers.BigNumber.from(0),
+        available: ethers.BigNumber.from(0),
+        utilization: 0,
+        error: error.message
+      };
+    }
+  }
+
+  async getAaveLiquidity(tokenSymbol) {
+    const tokens = this.getNetworkTokens();
+    const tokenAddress = tokens[tokenSymbol];
+    
+    if (!tokenAddress) {
+      throw new Error(`Token ${tokenSymbol} not found in network config`);
+    }
+
+    // Get Aave lending pool address for current network
+    const aaveAddress = this.networkConfig.protocols?.aave?.address;
+    if (!aaveAddress) {
+      throw new Error('Aave address not configured for this network');
+    }
+
+    const aaveContract = new ethers.Contract(
+      aaveAddress,
+      [
+        'function getReserveData(address asset) external view returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp)'
+      ],
+      this.provider
+    );
+
+    try {
+      const {
+        availableLiquidity,
+        totalStableDebt,
+        totalVariableDebt
+      } = await aaveContract.getReserveData(tokenAddress);
+
+      const totalBorrowed = totalStableDebt.add(totalVariableDebt);
+      const totalLiquidity = availableLiquidity.add(totalBorrowed);
+      const utilization = totalLiquidity.gt(0) 
+        ? totalBorrowed.mul(10000).div(totalLiquidity).toNumber() / 100
+        : 0;
+
+      return {
+        total: totalLiquidity,
+        available: availableLiquidity,
+        utilization,
+        protocol: 'Aave',
+        token: tokenSymbol
+      };
+    } catch (error) {
+      console.error(`Error fetching Aave liquidity for ${tokenSymbol}:`, error);
+      throw error;
+    }
+  }
+
+  async getCompoundLiquidity(tokenSymbol) {
+    const tokens = this.getNetworkTokens();
+    const tokenAddress = tokens[tokenSymbol];
+    
+    if (!tokenAddress) {
+      throw new Error(`Token ${tokenSymbol} not found in network config`);
+    }
+
+    // Get Compound comptroller address for current network
+    const compoundAddress = this.networkConfig.protocols?.compound?.address;
+    if (!compoundAddress) {
+      throw new Error('Compound address not configured for this network');
+    }
+
+    const compoundContract = new ethers.Contract(
+      compoundAddress,
+      [
+        'function getAllMarkets() external view returns (address[])',
+        'function markets(address cToken) external view returns (bool isListed, uint256 collateralFactorMantissa, bool isComped)'
+      ],
+      this.provider
+    );
+
+    try {
+      // Find the cToken for our underlying token
+      const allMarkets = await compoundContract.getAllMarkets();
+      
+      // We need to find which cToken corresponds to our token
+      // This is network-specific, so we'll check the first 10 markets
+      // (In production, you'd want a more robust solution)
+      const cTokenContracts = allMarkets.slice(0, 10).map(address => 
+        new ethers.Contract(
+          address,
+          [
+            'function underlying() external view returns (address)',
+            'function getCash() external view returns (uint256)',
+            'function totalBorrows() external view returns (uint256)',
+            'function totalSupply() external view returns (uint256)'
+          ],
+          this.provider
+        )
+      );
+
+      let cTokenAddress;
+      for (const contract of cTokenContracts) {
+        try {
+          const underlying = await contract.underlying();
+          if (underlying.toLowerCase() === tokenAddress.toLowerCase()) {
+            cTokenAddress = contract.address;
+            break;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+
+      if (!cTokenAddress) {
+        throw new Error(`cToken for ${tokenSymbol} not found`);
+      }
+
+      const cToken = new ethers.Contract(
+        cTokenAddress,
+        [
+          'function getCash() external view returns (uint256)',
+          'function totalBorrows() external view returns (uint256)',
+          'function totalSupply() external view returns (uint256)'
+        ],
+        this.provider
+      );
+
+      const [cash, borrows, supply] = await Promise.all([
+        cToken.getCash(),
+        cToken.totalBorrows(),
+        cToken.totalSupply()
+      ]);
+
+      const available = cash;
+      const total = cash.add(borrows);
+      const utilization = total.gt(0) 
+        ? borrows.mul(10000).div(total).toNumber() / 100
+        : 0;
+
+      return {
+        total,
+        available,
+        utilization,
+        protocol: 'Compound',
+        token: tokenSymbol
+      };
+    } catch (error) {
+      console.error(`Error fetching Compound liquidity for ${tokenSymbol}:`, error);
+      throw error;
+    }
+  }
+
+  async getDydxLiquidity(tokenSymbol) {
+    const tokens = this.getNetworkTokens();
+    const tokenAddress = tokens[tokenSymbol];
+    
+    if (!tokenAddress) {
+      throw new Error(`Token ${tokenSymbol} not found in network config`);
+    }
+
+    // Get dYdX Solo Margin address for current network
+    const dydxAddress = this.networkConfig.protocols?.dydx?.address;
+    if (!dydxAddress) {
+      throw new Error('dYdX address not configured for this network');
+    }
+
+    // First we need to find the market ID for our token
+    // This requires knowing the dYdX market IDs for each network
+    const marketIds = this.networkConfig.protocols?.dydx?.marketIds || {};
+    const marketId = marketIds[tokenSymbol];
+
+    if (marketId === undefined) {
+      throw new Error(`Market ID for ${tokenSymbol} not configured for dYdX`);
+    }
+
+    const dydxContract = new ethers.Contract(
+      dydxAddress,
+      [
+        'function getMarketTotalPar(uint256 marketId) external view returns (uint256, uint256)',
+        'function getMarketTokenAddress(uint256 marketId) external view returns (address)'
+      ],
+      this.provider
+    );
+
+    try {
+      // Verify the market ID maps to our token
+      const marketToken = await dydxContract.getMarketTokenAddress(marketId);
+      if (marketToken.toLowerCase() !== tokenAddress.toLowerCase()) {
+        throw new Error(`Market ID ${marketId} does not match token ${tokenSymbol}`);
+      }
+
+      const [supplyPar, borrowPar] = await dydxContract.getMarketTotalPar(marketId);
+      const available = supplyPar.sub(borrowPar);
+      const total = supplyPar;
+      const utilization = total.gt(0) 
+        ? borrowPar.mul(10000).div(total).toNumber() / 100
+        : 0;
+
+      return {
+        total,
+        available,
+        utilization,
+        protocol: 'dYdX',
+        token: tokenSymbol
+      };
+    } catch (error) {
+      console.error(`Error fetching dYdX liquidity for ${tokenSymbol}:`, error);
+      throw error;
+    }
+  }
+
+
+
 }
 
 module.exports = ArbitrageBot;

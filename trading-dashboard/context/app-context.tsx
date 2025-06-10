@@ -35,9 +35,13 @@ interface AppContextType {
     isPaused: () => Promise<boolean>
     configureDex: (name: string, router: string) => Promise<void>
     fetchBalances: (tokenAddresses: string) => Promise<void>
+    getProtocolLiquidity: (protocolName: string, tokenAddress: string) => Promise<void>
+    getNetworkTokens: () => Promise<string>
+    activeNetwork: String
   }
   isOnline: boolean;
   setIsOnline: (online: boolean) => void;
+  
   
 }
 
@@ -346,6 +350,41 @@ const contractActions = {
       setIsLoading(false);
     }
   },
+  getProtocolLiquidity: async (protocolName: string, tokenAddress: string) => {
+    try {
+      if (!arbitrageBot) {
+        console.error("ArbitrageBot not initialized yet");
+        return null;
+      }
+
+      setIsLoading(true);
+      const liquidity = await withRetry(() => arbitrageBot.getProtocolLiquidity(protocolName, tokenAddress));
+      return liquidity;
+    } catch (error) {
+      console.error("Error getting protocol liquidity:", error);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  },
+  getNetworkTokens: async () => {
+    try {
+      if (!arbitrageBot) {
+        console.error("ArbitrageBot not initialized yet");
+        return [];
+      }
+
+      setIsLoading(true);
+      const tokens = await withRetry(() => arbitrageBot.getNetworkTokens());
+      return tokens;
+    } catch (error) {
+      console.error("Error getting network tokens:", error);
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  },
+  activeNetwork: "sepolia" // Add the activeNetwork property
 };
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length

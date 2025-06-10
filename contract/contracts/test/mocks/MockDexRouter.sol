@@ -3,6 +3,7 @@
 pragma solidity ^0.8.10;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "hardhat/console.sol";
 
 contract MockDexRouter {
     uint256 public amountOut;
@@ -41,29 +42,23 @@ contract MockDexRouter {
 // }
 
     // In MockDexRouter.sol
+// In MockDexRouter.sol
+// In MockDexRouter.sol
+// In MockDexRouter.sol
 function swapExactTokensForTokens(
     uint amountIn,
-    uint /*amountOutMin*/,
+    uint /*amountOutMbin*/,
     address[] calldata path,
     address to,
     uint /*deadline*/
 ) external returns (uint[] memory amounts) {
-    // 1. Transfer input tokens from sender (arbitrage contract)
-    require(
-        IERC20(path[0]).transferFrom(msg.sender, address(this), amountIn),
-        "Input transfer failed"
-    );
+    // Pull input tokens
+    require(IERC20(path[0]).transferFrom(msg.sender, address(this), amountIn), "Input transfer failed");
     
-    // 2. Calculate output amount (using preset amountOut)
-    uint amountOut = amountOutValue;
-    
-    // 3. Transfer output tokens to recipient
-    require(
-        IERC20(path[1]).transfer(to, amountOut),
-        "Output transfer failed"
-    );
-    
-    // Return amounts array
+    // Push output tokens (critical fix)
+    uint256 amountOutLocal = amountOut;
+    require(IERC20(path[1]).transfer(to, amountOutLocal), "Output transfer failed");
+
     uint[] memory results = new uint[](2);
     results[0] = amountIn;
     results[1] = amountOut;

@@ -11,6 +11,20 @@ export interface NetworkConfig {
   tokens: {
     [symbol: string]: string;
   };
+  protocols?: {
+    [protocol: string]: {
+      address: string;
+      abi: string[];
+      factory?: string;
+      version: string;
+      cTokens?: {
+        [symbol: string]: string;
+      };
+      marketIds?: {
+        [symbol: string]: number;
+      };
+    };
+  };
 }
 
 export interface AppConfig {
@@ -24,7 +38,7 @@ export interface AppConfig {
     };
   };
   minProfitThreshold: bigint;
-  minSpreadThreshold: number;
+  minSpreadThreshold: number; 
 }
 
 export const DEFAULT_NETWORK = 'ethereum';
@@ -48,6 +62,39 @@ export const config: AppConfig = {
             LINK: '0x779877A7B0D9E8603169DdbD7836e478b4624789',
             EURS: '0xB20691021F9AcED8631eDaa3c0Cd2949EB45662D'
         },
+        protocols: {
+          aave: {
+            address: '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9', // Aave LendingPool address
+            abi: [
+              'function getReserveData(address asset) external view returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp)'
+            ],
+            version: 'v2'
+          },
+          compound: {
+            address: '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B', // Compound Comptroller
+            abi: [
+              'function getAccountLiquidity(address account) external view returns (uint256, uint256, uint256)',
+              'function getAllMarkets() external view returns (address[])'
+            ],
+            cTokens: {
+              ETH: '0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5', // cETH
+              USDC: '0x39AA39c021dfbaE8faC545936693aC917d5E7563' // cUSDC
+            },
+            version: ''
+          },
+          dydx: {
+            address: '0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e', // dYdX Solo Margin
+            abi: [
+              'function getMarketTotalPar(uint256 marketId) external view returns (uint256, uint256)'
+            ],
+            marketIds: {
+              ETH: 0,
+              USDC: 2,
+              DAI: 3
+            },
+            version: ''
+          }
+        },
         map: function (arg0: (token: { address: string | ethers.Addressable; symbol: any; name: any; }) => Promise<{ symbol: any; name: any; balance: string; value: string; usdValue: number; address: string | ethers.Addressable; }>): unknown {
             throw new Error('Function not implemented.');
         }
@@ -59,7 +106,7 @@ export const config: AppConfig = {
         flashbotsEndpoint: 'https://relay.flashbots.net',
         explorerUrl: 'https://etherscan.io',
         tokens: {
-            ETH: ethers.ZeroAddress,
+            ETH: '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe',
             USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
             DAI: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
             WBTC: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
@@ -67,6 +114,39 @@ export const config: AppConfig = {
             AAVE: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9',
             LINK: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
             EURS: '0xdB25f211AB05b1c97D595516F45794528a807ad8'
+        },
+        protocols: {
+          aave: {
+            address: '0x794a61358D6845594F94dc1DB02A252b5b4814aD', // Aave LendingPool address
+            abi: [
+              'function getReserveData(address asset) external view returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp)'
+            ],
+            version: 'v3'
+          },
+          compound: {
+            address: '0x0F390559F258eB8591C8e31Cf0905E97cf36ACE2', // Compound Comptroller
+            abi: [
+              'function getAccountLiquidity(address account) external view returns (uint256, uint256, uint256)',
+              'function getAllMarkets() external view returns (address[])'
+            ],
+            cTokens: {
+              ETH: '0x3C5E10f9fA3B52D3a61d3F0aB5a6d5C4083bB5F',
+              USDC: '0x2eE1Fc67B9B48263Fd6E1a1f1e1E1f1E1f1E1f1'
+            },
+            version: ''
+          },
+          dydx: {
+            address: '0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e', // dYdX Solo Margin
+            abi: [
+              'function getMarketTotalPar(uint256 marketId) external view returns (uint256, uint256)'
+            ],
+            marketIds: {
+              ETH: 0,
+              USDC: 2,
+              DAI: 3
+            },
+            version: ''
+          }
         },
         map: function (arg0: (token: { address: string | ethers.Addressable; symbol: any; name: any; }) => Promise<{ symbol: any; name: any; balance: string; value: string; usdValue: number; address: string | ethers.Addressable; }>): unknown {
             throw new Error('Function not implemented.');
@@ -86,6 +166,39 @@ export const config: AppConfig = {
             AAVE: '0xD6DF932A45C0f255f85145f286eA0b292B21C90B',
             LINK: '0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39'
         },
+        protocols: {
+          aave: {
+            address: '0x794a61358D6845594F94dc1DB02A252b5b4814aD', // Aave LendingPool address
+            abi: [
+              'function getReserveData(address asset) external view returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp)'
+            ],
+            version: 'v3'
+          },
+          compound: {
+            address: '0x0F390559F258eB8591C8e31Cf0905E97cf36ACE2', // Compound Comptroller
+            abi: [
+              'function getAccountLiquidity(address account) external view returns (uint256, uint256, uint256)',
+              'function getAllMarkets() external view returns (address[])'
+            ],
+            cTokens: {
+              ETH: '0x3C5E10f9fA3B52D3a61d3F0aB5a6d5C4083bB5F',
+              USDC: '0x2eE1Fc67B9B48263Fd6E1a1f1e1E1f1E1f1E1f1'
+            },
+            version: ''
+          },
+          dydx: {
+            address: '0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e', // dYdX Solo Margin
+            abi: [
+              'function getMarketTotalPar(uint256 marketId) external view returns (uint256, uint256)'
+            ],
+            marketIds: {
+              ETH: 0,
+              USDC: 2,
+              DAI: 3
+            },
+            version: ''
+          }
+        },
         map: function (arg0: (token: { address: string | ethers.Addressable; symbol: any; name: any; }) => Promise<{ symbol: any; name: any; balance: string; value: string; usdValue: number; address: string | ethers.Addressable; }>): unknown {
             throw new Error('Function not implemented.');
         }
@@ -103,6 +216,39 @@ export const config: AppConfig = {
             USDT: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
             AAVE: '0xba5DdD1f9d7F570dc94a51479a000E3BCE967196',
             LINK: '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
+        },
+        protocols: {
+          aave: {
+            address: '0x794a61358D6845594F94dc1DB02A252b5b4814aD', // Aave LendingPool address
+            abi: [
+              'function getReserveData(address asset) external view returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp)'
+            ],
+            version: 'v3'
+          },
+          compound: {
+            address: '0x0F390559F258eB8591C8e31Cf0905E97cf36ACE2', // Compound Comptroller
+            abi: [
+              'function getAccountLiquidity(address account) external view returns (uint256, uint256, uint256)',
+              'function getAllMarkets() external view returns (address[])'
+            ],
+            cTokens: {
+              ETH: '0x3C5E10f9fA3B52D3a61d3F0aB5a6d5C4083bB5F',
+              USDC: '0x2eE1Fc67B9B48263Fd6E1a1f1e1E1f1E1f1E1f1'
+            },
+            version: ''
+          },
+          dydx: {
+            address: '0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e', // dYdX Solo Margin
+            abi: [
+              'function getMarketTotalPar(uint256 marketId) external view returns (uint256, uint256)'
+            ],
+            marketIds: {
+              ETH: 0,
+              USDC: 2,
+              DAI: 3
+            },
+            version: ''
+          }
         },
         map: function (arg0: (token: { address: string | ethers.Addressable; symbol: any; name: any; }) => Promise<{ symbol: any; name: any; balance: string; value: string; usdValue: number; address: string | ethers.Addressable; }>): unknown {
             throw new Error('Function not implemented.');
@@ -122,6 +268,39 @@ export const config: AppConfig = {
             AAVE: '0x76FB31fb4af56892A25e32cFC43De717950c9278',
             LINK: '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
         },
+        protocols: {
+          aave: {
+            address: '0x794a61358D6845594F94dc1DB02A252b5b4814aD', // Aave LendingPool address
+            abi: [
+              'function getReserveData(address asset) external view returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp)'
+            ],
+            version: 'v3'
+          },
+          compound: {
+            address: '0x0F390559F258eB8591C8e31Cf0905E97cf36ACE2', // Compound Comptroller
+            abi: [
+              'function getAccountLiquidity(address account) external view returns (uint256, uint256, uint256)',
+              'function getAllMarkets() external view returns (address[])'
+            ],
+            cTokens: {
+              ETH: '0x3C5E10f9fA3B52D3a61d3F0aB5a6d5C4083bB5F',
+              USDC: '0x2eE1Fc67B9B48263Fd6E1a1f1e1E1f1E1f1E1f1'
+            },
+            version: ''
+          },
+          dydx: {
+            address: '0x1E0447b19BB6EcFdAe1e4AE1694b0C3659614e4e', // dYdX Solo Margin
+            abi: [
+              'function getMarketTotalPar(uint256 marketId) external view returns (uint256, uint256)'
+            ],
+            marketIds: {
+              ETH: 0,
+              USDC: 2,
+              DAI: 3
+            },
+            version: ''
+          }
+        },  
         map: function (arg0: (token: { address: string | ethers.Addressable; symbol: any; name: any; }) => Promise<{ symbol: any; name: any; balance: string; value: string; usdValue: number; address: string | ethers.Addressable; }>): unknown {
             throw new Error('Function not implemented.');
         }
@@ -138,7 +317,8 @@ export const config: AppConfig = {
     }
   },
   minProfitThreshold: ethers.parseUnits('50', 6), // $50 in USDC decimals
-  minSpreadThreshold: 50 // 0.5% in basis points
+  minSpreadThreshold: 50, // 0.5% in basis points
+  
 };
 
 // Network management utilities
